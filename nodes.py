@@ -2132,6 +2132,12 @@ def get_module_name(module_path: str) -> str:
         base_path = os.path.splitext(base_path)[0]
     return base_path
 
+def get_hacky_folder_paths():
+    hacky_folder_paths = []
+    for name, values in folder_paths.folder_names_and_paths.items():
+        if len(values) > 2:
+            hacky_folder_paths.append([name, values])
+    return hacky_folder_paths
 
 async def load_custom_node(module_path: str, ignore=set(), module_parent="custom_nodes") -> bool:
     module_name = get_module_name(module_path)
@@ -2241,6 +2247,7 @@ async def init_external_custom_nodes():
     base_node_names = set(NODE_CLASS_MAPPINGS.keys())
     node_paths = folder_paths.get_folder_paths("custom_nodes")
     node_import_times = []
+    found_first_hacky_folder_path = False
     for custom_node_path in node_paths:
         possible_modules = os.listdir(os.path.realpath(custom_node_path))
         if "__pycache__" in possible_modules:
@@ -2264,6 +2271,12 @@ async def init_external_custom_nodes():
             time_before = time.perf_counter()
             success = await load_custom_node(module_path, base_node_names, module_parent="custom_nodes")
             node_import_times.append((time.perf_counter() - time_before, module_path, success))
+            if not found_first_hacky_folder_path:
+                hacky_folder_paths = get_hacky_folder_paths()
+                if len(hacky_folder_paths) > 0:
+                    logging.warning(f"Found first custom node to have hacky folder paths: {module_path}")
+                    logging.warning(f"Hacky folder paths: {hacky_folder_paths}")
+                    found_first_hacky_folder_path = True
 
     if len(node_import_times) > 0:
         logging.info("\nImport times for custom nodes:")

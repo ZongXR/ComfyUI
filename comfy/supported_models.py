@@ -771,10 +771,24 @@ class Flux2(Flux):
         return out
 
     def clip_target(self, state_dict={}):
-        return None # TODO
         pref = self.text_encoder_key_prefix[0]
-        t5_detect = comfy.text_encoders.sd3_clip.t5_xxl_detect(state_dict, "{}t5xxl.transformer.".format(pref))
-        return supported_models_base.ClipTarget(comfy.text_encoders.flux.FluxTokenizer, comfy.text_encoders.flux.flux_clip(**t5_detect))
+        detect = comfy.text_encoders.hunyuan_video.llama_detect(state_dict, "{}qwen3_4b.transformer.".format(pref))
+        if len(detect) > 0:
+            detect["model_type"] = "qwen3_4b"
+            return supported_models_base.ClipTarget(comfy.text_encoders.flux.KleinTokenizer, comfy.text_encoders.flux.klein_te(**detect))
+
+        detect = comfy.text_encoders.hunyuan_video.llama_detect(state_dict, "{}qwen3_8b.transformer.".format(pref))
+        if len(detect) > 0:
+            detect["model_type"] = "qwen3_8b"
+            return supported_models_base.ClipTarget(comfy.text_encoders.flux.KleinTokenizer8B, comfy.text_encoders.flux.klein_te(**detect))
+
+        detect = comfy.text_encoders.hunyuan_video.llama_detect(state_dict, "{}mistral3_24b.transformer.".format(pref))
+        if len(detect) > 0:
+            if "{}mistral3_24b.transformer.model.layers.39.post_attention_layernorm.weight".format(pref) not in state_dict:
+                detect["pruned"] = True
+            return supported_models_base.ClipTarget(comfy.text_encoders.flux.Flux2Tokenizer, comfy.text_encoders.flux.flux2_te(**detect))
+
+        return None
 
 class GenmoMochi(supported_models_base.BASE):
     unet_config = {
@@ -1079,7 +1093,7 @@ class ZImage(Lumina2):
 
     def __init__(self, unet_config):
         super().__init__(unet_config)
-        if comfy.model_management.extended_fp16_support():
+        if comfy.model_management.extended_fp16_support() and unet_config.get("allow_fp16", False):
             self.supported_inference_dtypes = self.supported_inference_dtypes.copy()
             self.supported_inference_dtypes.insert(1, torch.float16)
 
